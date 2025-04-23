@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System.Collections.Generic;
 
 namespace TestGame;
 
@@ -12,12 +13,14 @@ public class Game1 : Game
 
     private Vector2 _playerPosition = new Vector2(100, 100);
     private Vector2 _playerVelocity = Vector2.Zero;
-    private Vector2 _gravity = new Vector2(0, 0.5f); // Adjust this value for stronger or weaker gravity
+    private Vector2 _gravity = new Vector2(0, 0.5f);
 
-    private const int SpriteSize = 8; // original sprite size
-    private const float SpriteScale = 4f; // how much we scale it
-    private float ScaledSize => SpriteSize * SpriteScale; // 32
+    private const int SpriteSize = 8;
+    private const float SpriteScale = 4f;
+    private float ScaledSize => SpriteSize * SpriteScale;
 
+    // List to store platform tile positions
+    private List<Vector2> _platformTiles = new List<Vector2>();
 
     public Game1()
     {
@@ -32,16 +35,32 @@ public class Game1 : Game
         _graphics.PreferredBackBufferHeight = 480;
         _graphics.ApplyChanges();
 
+        // Create a platform under the player
+        CreatePlatform();
+
         base.Initialize();
+    }
+
+    private void CreatePlatform()
+    {
+        // Clear any existing tiles
+        _platformTiles.Clear();
+
+        // Platform will be 10 tiles wide centered below the player
+        int platformWidth = 10;
+        float startX = (_graphics.PreferredBackBufferWidth / 2) - (platformWidth * ScaledSize / 2);
+        float platformY = _graphics.PreferredBackBufferHeight - ScaledSize * 2; // 2 tiles above bottom
+
+        for (int i = 0; i < platformWidth; i++)
+        {
+            _platformTiles.Add(new Vector2(startX + i * ScaledSize, platformY));
+        }
     }
 
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-        // TODO: use this.Content to load your game content here
-        // Load your spritesheet texture here. Replace "mySpriteSheet" with the actual name of your file in the Content folder.
-        _spritesheetTexture = Content.Load<Texture2D>("spritesheet"); // <-- Add this line
+        _spritesheetTexture = Content.Load<Texture2D>("spritesheet");
     }
 
     protected override void Update(GameTime gameTime)
@@ -52,12 +71,21 @@ public class Game1 : Game
 
         KeyboardState keyboard = Keyboard.GetState();
 
-// Only move left/right if we're on the ground
-        bool isGrounded = _playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight;
+        // Check if player is on any platform tile
+        bool isGrounded = false;
         
+
+        // Also check if on bottom of screen (original ground check)
+        if (!isGrounded && _playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight)
+        {
+            isGrounded = true;
+            _playerPosition.Y = _graphics.PreferredBackBufferHeight - ScaledSize;
+            _playerVelocity.Y = 0;
+        }
+
         if (isGrounded && (keyboard.IsKeyDown(Keys.Space) || keyboard.IsKeyDown(Keys.W)))
         {
-            _playerVelocity.Y = -8f; // Jump strength (tweak if too floaty or heavy)
+            _playerVelocity.Y = -8f;
         }
 
         if (keyboard.IsKeyDown(Keys.A))
@@ -65,60 +93,53 @@ public class Game1 : Game
         else if (keyboard.IsKeyDown(Keys.D))
             _playerVelocity.X = 2f;
         else
-            _playerVelocity.X = 0f; // Stop when no key is held
+            _playerVelocity.X = 0f;
 
+        _playerVelocity += _gravity;
+        _playerPosition += _playerVelocity;
 
-        // Gravity
-        _playerVelocity += _gravity; // Accelerate downward
-        _playerPosition += _playerVelocity; // Move the player
-
-        // Define screen and sprite sizes
-        int windowWidth = _graphics.PreferredBackBufferWidth;
-        int windowHeight = _graphics.PreferredBackBufferHeight;
-
-// Clamp X position (left/right)
+        // Screen bounds checking (X axis only)
         if (_playerPosition.X < 0)
         {
             _playerPosition.X = 0;
             _playerVelocity.X = 0;
         }
-        else if (_playerPosition.X + ScaledSize > windowWidth)
+        else if (_playerPosition.X + ScaledSize > _graphics.PreferredBackBufferWidth)
         {
-            _playerPosition.X = windowWidth - ScaledSize;
+            _playerPosition.X = _graphics.PreferredBackBufferWidth - ScaledSize;
             _playerVelocity.X = 0;
         }
 
-// Clamp Y position (top/bottom)
-        if (_playerPosition.Y < 0)
-        {
-            _playerPosition.Y = 0;
-            _playerVelocity.Y = 0;
-        }
-        else if (_playerPosition.Y + ScaledSize > windowHeight)
-        {
-            _playerPosition.Y = windowHeight - ScaledSize;
-            _playerVelocity.Y = 0;
-        }
-
-
         base.Update(gameTime);
     }
-
 
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Color.CornflowerBlue);
 
-        // 🔧 Use PointClamp to prevent blurry scaling
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-        Rectangle sourceRectangle = new Rectangle(0, 0, 8, 8);
-        Vector2 drawPosition = _playerPosition;
+        // Draw platform tiles
+        foreach (var tile in _platformTiles)
+        {
+            _spriteBatch.Draw(
+                _spritesheetTexture,
+                tile,
+                new Rectangle(8, 8, 8, 8),
+                Color.White,
+                0f,
+                Vector2.Zero,
+                SpriteScale,
+                SpriteEffects.None,
+                0f
+            );
+        }
 
+        // Draw player
         _spriteBatch.Draw(
             _spritesheetTexture,
             _playerPosition,
-            new Rectangle(0, 0, SpriteSize, SpriteSize),
+            new Rectangle(0, 0, SpriteSize, SpriteSize), // Same sprite as player for now
             Color.White,
             0f,
             Vector2.Zero,
@@ -126,7 +147,6 @@ public class Game1 : Game
             SpriteEffects.None,
             0f
         );
-
 
         _spriteBatch.End();
 
