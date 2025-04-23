@@ -23,6 +23,11 @@ public class Game1 : Game
     // List to store platform tile positions
     private List<Vector2> _platformTiles = new List<Vector2>();
 
+    private Matrix _transformMatrix;
+    private float _zoom = 1.5f; // Zoom level (1.0 = normal, >1.0 = zoomed in)
+    private Vector2 _cameraPosition;
+    private Viewport _viewport;
+
     public Game1()
     {
         _graphics = new GraphicsDeviceManager(this);
@@ -36,10 +41,23 @@ public class Game1 : Game
         _graphics.PreferredBackBufferHeight = 480;
         _graphics.ApplyChanges();
 
-        // Create a platform under the player
+        _viewport = GraphicsDevice.Viewport;
         CreatePlatform();
 
         base.Initialize();
+    }
+
+    private void UpdateCamera()
+    {
+        // Calculate desired camera position (centered on player)
+        _cameraPosition = new Vector2(
+            _playerPosition.X + (ScaledSize / 2) - (_viewport.Width / (2 * _zoom)),
+            _playerPosition.Y + (ScaledSize / 2) - (_viewport.Height / (2 * _zoom))
+        );
+
+        // Create the transformation matrix
+        _transformMatrix = Matrix.CreateTranslation(new Vector3(-_cameraPosition, 0)) *
+                           Matrix.CreateScale(_zoom, _zoom, 1);
     }
 
     private void CreatePlatform()
@@ -65,120 +83,124 @@ public class Game1 : Game
     }
 
     protected override void Update(GameTime gameTime)
-{
-    if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
-        Keyboard.GetState().IsKeyDown(Keys.Escape))
-        Exit();
-
-    KeyboardState keyboard = Keyboard.GetState();
-
-    // Store previous position for collision response
-    Vector2 previousPosition = _playerPosition;
-
-    // Apply movement
-    if (keyboard.IsKeyDown(Keys.A))
-        _playerVelocity.X = -2f;
-    else if (keyboard.IsKeyDown(Keys.D))
-        _playerVelocity.X = 2f;
-    else
-        _playerVelocity.X = 0f;
-
-    // Apply gravity
-    _playerVelocity += _gravity;
-    _playerPosition += _playerVelocity;
-
-    // Create player rectangle
-    Rectangle playerRect = new Rectangle(
-        (int)_playerPosition.X,
-        (int)_playerPosition.Y,
-        (int)ScaledSize,
-        (int)ScaledSize
-    );
-
-    // Check if player is grounded (either on platform or floor)
-    bool isGrounded = false;
-
-    // 1. Check collisions with platform tiles
-    foreach (var tile in _platformTiles)
     {
-        Rectangle tileRect = new Rectangle(
-            (int)tile.X,
-            (int)tile.Y,
+        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
+            Keyboard.GetState().IsKeyDown(Keys.Escape))
+            Exit();
+
+        KeyboardState keyboard = Keyboard.GetState();
+
+        // Store previous position for collision response
+        Vector2 previousPosition = _playerPosition;
+
+        // Apply movement
+        if (keyboard.IsKeyDown(Keys.A))
+            _playerVelocity.X = -2f;
+        else if (keyboard.IsKeyDown(Keys.D))
+            _playerVelocity.X = 2f;
+        else
+            _playerVelocity.X = 0f;
+
+        // Apply gravity
+        _playerVelocity += _gravity;
+        _playerPosition += _playerVelocity;
+
+        // Create player rectangle
+        Rectangle playerRect = new Rectangle(
+            (int)_playerPosition.X,
+            (int)_playerPosition.Y,
             (int)ScaledSize,
             (int)ScaledSize
         );
 
-        if (playerRect.Intersects(tileRect))
+        // Check if player is grounded (either on platform or floor)
+        bool isGrounded = false;
+
+        // 1. Check collisions with platform tiles
+        foreach (var tile in _platformTiles)
         {
-            // Calculate overlap on each side
-            float overlapLeft = playerRect.Right - tileRect.Left;
-            float overlapRight = tileRect.Right - playerRect.Left;
-            float overlapTop = playerRect.Bottom - tileRect.Top;
-            float overlapBottom = tileRect.Bottom - playerRect.Top;
+            Rectangle tileRect = new Rectangle(
+                (int)tile.X,
+                (int)tile.Y,
+                (int)ScaledSize,
+                (int)ScaledSize
+            );
 
-            // Find the smallest overlap (shallowest penetration)
-            float minOverlap = Math.Min(Math.Min(overlapLeft, overlapRight), 
-                                       Math.Min(overlapTop, overlapBottom));
+            if (playerRect.Intersects(tileRect))
+            {
+                // Calculate overlap on each side
+                float overlapLeft = playerRect.Right - tileRect.Left;
+                float overlapRight = tileRect.Right - playerRect.Left;
+                float overlapTop = playerRect.Bottom - tileRect.Top;
+                float overlapBottom = tileRect.Bottom - playerRect.Top;
 
-            // Resolve collision based on smallest overlap
-            if (minOverlap == overlapLeft)
-            {
-                _playerPosition.X = tileRect.Left - playerRect.Width;
-                _playerVelocity.X = 0;
-            }
-            else if (minOverlap == overlapRight)
-            {
-                _playerPosition.X = tileRect.Right;
-                _playerVelocity.X = 0;
-            }
-            else if (minOverlap == overlapTop)
-            {
-                _playerPosition.Y = tileRect.Top - playerRect.Height;
-                _playerVelocity.Y = 0;
-                isGrounded = true;
-            }
-            else if (minOverlap == overlapBottom)
-            {
-                _playerPosition.Y = tileRect.Bottom;
-                _playerVelocity.Y = 0;
+                // Find the smallest overlap (shallowest penetration)
+                float minOverlap = Math.Min(Math.Min(overlapLeft, overlapRight),
+                    Math.Min(overlapTop, overlapBottom));
+
+                // Resolve collision based on smallest overlap
+                if (minOverlap == overlapLeft)
+                {
+                    _playerPosition.X = tileRect.Left - playerRect.Width;
+                    _playerVelocity.X = 0;
+                }
+                else if (minOverlap == overlapRight)
+                {
+                    _playerPosition.X = tileRect.Right;
+                    _playerVelocity.X = 0;
+                }
+                else if (minOverlap == overlapTop)
+                {
+                    _playerPosition.Y = tileRect.Top - playerRect.Height;
+                    _playerVelocity.Y = 0;
+                    isGrounded = true;
+                }
+                else if (minOverlap == overlapBottom)
+                {
+                    _playerPosition.Y = tileRect.Bottom;
+                    _playerVelocity.Y = 0;
+                }
             }
         }
-    }
 
-    // 2. Check collision with floor (window bottom border)
-    if (_playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight)
-    {
-        _playerPosition.Y = _graphics.PreferredBackBufferHeight - ScaledSize;
-        _playerVelocity.Y = 0;
-        isGrounded = true;
-    }
+        // 2. Check collision with floor (window bottom border)
+        if (_playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight)
+        {
+            _playerPosition.Y = _graphics.PreferredBackBufferHeight - ScaledSize;
+            _playerVelocity.Y = 0;
+            isGrounded = true;
+        }
 
-    // Jump only when grounded
-    if (isGrounded && (keyboard.IsKeyDown(Keys.Space) || keyboard.IsKeyDown(Keys.W)))
-    {
-        _playerVelocity.Y = -8f;
-    }
+        // Jump only when grounded
+        if (isGrounded && (keyboard.IsKeyDown(Keys.Space) || keyboard.IsKeyDown(Keys.W)))
+        {
+            _playerVelocity.Y = -8f;
+        }
 
-    // Screen bounds checking (X axis only)
-    if (_playerPosition.X < 0)
-    {
-        _playerPosition.X = 0;
-        _playerVelocity.X = 0;
-    }
-    else if (_playerPosition.X + ScaledSize > _graphics.PreferredBackBufferWidth)
-    {
-        _playerPosition.X = _graphics.PreferredBackBufferWidth - ScaledSize;
-        _playerVelocity.X = 0;
-    }
+        // Screen bounds checking (X axis only)
+        if (_playerPosition.X < 0)
+        {
+            _playerPosition.X = 0;
+            _playerVelocity.X = 0;
+        }
+        else if (_playerPosition.X + ScaledSize > _graphics.PreferredBackBufferWidth)
+        {
+            _playerPosition.X = _graphics.PreferredBackBufferWidth - ScaledSize;
+            _playerVelocity.X = 0;
+        }
 
-    base.Update(gameTime);
-}
+        UpdateCamera(); 
+        base.Update(gameTime);
+    }
 
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Color.CornflowerBlue);
 
-        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        _spriteBatch.Begin(
+            samplerState: SamplerState.PointClamp,
+            transformMatrix: _transformMatrix
+        );
 
         // Draw platform tiles
         foreach (var tile in _platformTiles)
@@ -200,7 +222,7 @@ public class Game1 : Game
         _spriteBatch.Draw(
             _spritesheetTexture,
             _playerPosition,
-            new Rectangle(0, 0, SpriteSize, SpriteSize), // Same sprite as player for now
+            new Rectangle(0, 0, SpriteSize, SpriteSize),
             Color.White,
             0f,
             Vector2.Zero,
@@ -210,7 +232,6 @@ public class Game1 : Game
         );
 
         _spriteBatch.End();
-
         base.Draw(gameTime);
     }
 }
