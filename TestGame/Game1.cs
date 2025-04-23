@@ -54,6 +54,11 @@ public class Game1 : Game
 
 // Only move left/right if we're on the ground
         bool isGrounded = _playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight;
+        
+        if (isGrounded && (keyboard.IsKeyDown(Keys.Space) || keyboard.IsKeyDown(Keys.W)))
+        {
+            _playerVelocity.Y = -8f; // Jump strength (tweak if too floaty or heavy)
+        }
 
         if (keyboard.IsKeyDown(Keys.A))
             _playerVelocity.X = -2f;
