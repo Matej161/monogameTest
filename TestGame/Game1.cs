@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System.Collections.Generic;
@@ -47,7 +48,7 @@ public class Game1 : Game
         _platformTiles.Clear();
 
         // Platform will be 10 tiles wide centered below the player
-        int platformWidth = 10;
+        int platformWidth = 20;
         float startX = (_graphics.PreferredBackBufferWidth / 2) - (platformWidth * ScaledSize / 2);
         float platformY = _graphics.PreferredBackBufferHeight - ScaledSize * 2; // 2 tiles above bottom
 
@@ -64,54 +65,114 @@ public class Game1 : Game
     }
 
     protected override void Update(GameTime gameTime)
+{
+    if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
+        Keyboard.GetState().IsKeyDown(Keys.Escape))
+        Exit();
+
+    KeyboardState keyboard = Keyboard.GetState();
+
+    // Store previous position for collision response
+    Vector2 previousPosition = _playerPosition;
+
+    // Apply movement
+    if (keyboard.IsKeyDown(Keys.A))
+        _playerVelocity.X = -2f;
+    else if (keyboard.IsKeyDown(Keys.D))
+        _playerVelocity.X = 2f;
+    else
+        _playerVelocity.X = 0f;
+
+    // Apply gravity
+    _playerVelocity += _gravity;
+    _playerPosition += _playerVelocity;
+
+    // Create player rectangle
+    Rectangle playerRect = new Rectangle(
+        (int)_playerPosition.X,
+        (int)_playerPosition.Y,
+        (int)ScaledSize,
+        (int)ScaledSize
+    );
+
+    // Check if player is grounded (either on platform or floor)
+    bool isGrounded = false;
+
+    // 1. Check collisions with platform tiles
+    foreach (var tile in _platformTiles)
     {
-        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
-            Keyboard.GetState().IsKeyDown(Keys.Escape))
-            Exit();
+        Rectangle tileRect = new Rectangle(
+            (int)tile.X,
+            (int)tile.Y,
+            (int)ScaledSize,
+            (int)ScaledSize
+        );
 
-        KeyboardState keyboard = Keyboard.GetState();
-
-        // Check if player is on any platform tile
-        bool isGrounded = false;
-        
-
-        // Also check if on bottom of screen (original ground check)
-        if (!isGrounded && _playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight)
+        if (playerRect.Intersects(tileRect))
         {
-            isGrounded = true;
-            _playerPosition.Y = _graphics.PreferredBackBufferHeight - ScaledSize;
-            _playerVelocity.Y = 0;
+            // Calculate overlap on each side
+            float overlapLeft = playerRect.Right - tileRect.Left;
+            float overlapRight = tileRect.Right - playerRect.Left;
+            float overlapTop = playerRect.Bottom - tileRect.Top;
+            float overlapBottom = tileRect.Bottom - playerRect.Top;
+
+            // Find the smallest overlap (shallowest penetration)
+            float minOverlap = Math.Min(Math.Min(overlapLeft, overlapRight), 
+                                       Math.Min(overlapTop, overlapBottom));
+
+            // Resolve collision based on smallest overlap
+            if (minOverlap == overlapLeft)
+            {
+                _playerPosition.X = tileRect.Left - playerRect.Width;
+                _playerVelocity.X = 0;
+            }
+            else if (minOverlap == overlapRight)
+            {
+                _playerPosition.X = tileRect.Right;
+                _playerVelocity.X = 0;
+            }
+            else if (minOverlap == overlapTop)
+            {
+                _playerPosition.Y = tileRect.Top - playerRect.Height;
+                _playerVelocity.Y = 0;
+                isGrounded = true;
+            }
+            else if (minOverlap == overlapBottom)
+            {
+                _playerPosition.Y = tileRect.Bottom;
+                _playerVelocity.Y = 0;
+            }
         }
-
-        if (isGrounded && (keyboard.IsKeyDown(Keys.Space) || keyboard.IsKeyDown(Keys.W)))
-        {
-            _playerVelocity.Y = -8f;
-        }
-
-        if (keyboard.IsKeyDown(Keys.A))
-            _playerVelocity.X = -2f;
-        else if (keyboard.IsKeyDown(Keys.D))
-            _playerVelocity.X = 2f;
-        else
-            _playerVelocity.X = 0f;
-
-        _playerVelocity += _gravity;
-        _playerPosition += _playerVelocity;
-
-        // Screen bounds checking (X axis only)
-        if (_playerPosition.X < 0)
-        {
-            _playerPosition.X = 0;
-            _playerVelocity.X = 0;
-        }
-        else if (_playerPosition.X + ScaledSize > _graphics.PreferredBackBufferWidth)
-        {
-            _playerPosition.X = _graphics.PreferredBackBufferWidth - ScaledSize;
-            _playerVelocity.X = 0;
-        }
-
-        base.Update(gameTime);
     }
+
+    // 2. Check collision with floor (window bottom border)
+    if (_playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight)
+    {
+        _playerPosition.Y = _graphics.PreferredBackBufferHeight - ScaledSize;
+        _playerVelocity.Y = 0;
+        isGrounded = true;
+    }
+
+    // Jump only when grounded
+    if (isGrounded && (keyboard.IsKeyDown(Keys.Space) || keyboard.IsKeyDown(Keys.W)))
+    {
+        _playerVelocity.Y = -8f;
+    }
+
+    // Screen bounds checking (X axis only)
+    if (_playerPosition.X < 0)
+    {
+        _playerPosition.X = 0;
+        _playerVelocity.X = 0;
+    }
+    else if (_playerPosition.X + ScaledSize > _graphics.PreferredBackBufferWidth)
+    {
+        _playerPosition.X = _graphics.PreferredBackBufferWidth - ScaledSize;
+        _playerVelocity.X = 0;
+    }
+
+    base.Update(gameTime);
+}
 
     protected override void Draw(GameTime gameTime)
     {
