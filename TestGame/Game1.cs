@@ -9,6 +9,10 @@ public class Game1 : Game
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private Texture2D _spritesheetTexture;
+    
+    private Vector2 _playerPosition = new Vector2(100, 100);
+    private Vector2 _playerVelocity = Vector2.Zero;
+    private Vector2 _gravity = new Vector2(0, 0.5f); // Adjust this value for stronger or weaker gravity
 
     public Game1()
     {
@@ -38,10 +42,13 @@ public class Game1 : Game
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
 
-        // TODO: Add your update logic here
+        // Gravity
+        _playerVelocity += _gravity;      // Accelerate downward
+        _playerPosition += _playerVelocity; // Move the player
 
         base.Update(gameTime);
     }
+
 
     protected override void Draw(GameTime gameTime)
     {
@@ -51,7 +58,7 @@ public class Game1 : Game
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
         Rectangle sourceRectangle = new Rectangle(0, 0, 8, 8);
-        Vector2 drawPosition = new Vector2(100, 100);
+        Vector2 drawPosition = _playerPosition;
 
         _spriteBatch.Draw(
             _spritesheetTexture,
