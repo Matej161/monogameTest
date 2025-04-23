@@ -9,13 +9,13 @@ public class Game1 : Game
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private Texture2D _spritesheetTexture;
-    
+
     private Vector2 _playerPosition = new Vector2(100, 100);
     private Vector2 _playerVelocity = Vector2.Zero;
     private Vector2 _gravity = new Vector2(0, 0.5f); // Adjust this value for stronger or weaker gravity
-    
-    private const int SpriteSize = 8;        // original sprite size
-    private const float SpriteScale = 4f;    // how much we scale it
+
+    private const int SpriteSize = 8; // original sprite size
+    private const float SpriteScale = 4f; // how much we scale it
     private float ScaledSize => SpriteSize * SpriteScale; // 32
 
 
@@ -46,13 +46,27 @@ public class Game1 : Game
 
     protected override void Update(GameTime gameTime)
     {
-        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
+        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
+            Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
 
+        KeyboardState keyboard = Keyboard.GetState();
+
+// Only move left/right if we're on the ground
+        bool isGrounded = _playerPosition.Y + ScaledSize >= _graphics.PreferredBackBufferHeight;
+
+        if (keyboard.IsKeyDown(Keys.A))
+            _playerVelocity.X = -2f;
+        else if (keyboard.IsKeyDown(Keys.D))
+            _playerVelocity.X = 2f;
+        else
+            _playerVelocity.X = 0f; // Stop when no key is held
+
+
         // Gravity
-        _playerVelocity += _gravity;      // Accelerate downward
+        _playerVelocity += _gravity; // Accelerate downward
         _playerPosition += _playerVelocity; // Move the player
-        
+
         // Define screen and sprite sizes
         int windowWidth = _graphics.PreferredBackBufferWidth;
         int windowHeight = _graphics.PreferredBackBufferHeight;
