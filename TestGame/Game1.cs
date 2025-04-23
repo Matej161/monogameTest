@@ -13,6 +13,11 @@ public class Game1 : Game
     private Vector2 _playerPosition = new Vector2(100, 100);
     private Vector2 _playerVelocity = Vector2.Zero;
     private Vector2 _gravity = new Vector2(0, 0.5f); // Adjust this value for stronger or weaker gravity
+    
+    private const int SpriteSize = 8;        // original sprite size
+    private const float SpriteScale = 4f;    // how much we scale it
+    private float ScaledSize => SpriteSize * SpriteScale; // 32
+
 
     public Game1()
     {
@@ -23,7 +28,9 @@ public class Game1 : Game
 
     protected override void Initialize()
     {
-        // TODO: Add your initialization logic here
+        _graphics.PreferredBackBufferWidth = 800;
+        _graphics.PreferredBackBufferHeight = 480;
+        _graphics.ApplyChanges();
 
         base.Initialize();
     }
@@ -45,6 +52,35 @@ public class Game1 : Game
         // Gravity
         _playerVelocity += _gravity;      // Accelerate downward
         _playerPosition += _playerVelocity; // Move the player
+        
+        // Define screen and sprite sizes
+        int windowWidth = _graphics.PreferredBackBufferWidth;
+        int windowHeight = _graphics.PreferredBackBufferHeight;
+
+// Clamp X position (left/right)
+        if (_playerPosition.X < 0)
+        {
+            _playerPosition.X = 0;
+            _playerVelocity.X = 0;
+        }
+        else if (_playerPosition.X + ScaledSize > windowWidth)
+        {
+            _playerPosition.X = windowWidth - ScaledSize;
+            _playerVelocity.X = 0;
+        }
+
+// Clamp Y position (top/bottom)
+        if (_playerPosition.Y < 0)
+        {
+            _playerPosition.Y = 0;
+            _playerVelocity.Y = 0;
+        }
+        else if (_playerPosition.Y + ScaledSize > windowHeight)
+        {
+            _playerPosition.Y = windowHeight - ScaledSize;
+            _playerVelocity.Y = 0;
+        }
+
 
         base.Update(gameTime);
     }
@@ -62,15 +98,16 @@ public class Game1 : Game
 
         _spriteBatch.Draw(
             _spritesheetTexture,
-            drawPosition,
-            sourceRectangle,
+            _playerPosition,
+            new Rectangle(0, 0, SpriteSize, SpriteSize),
             Color.White,
             0f,
             Vector2.Zero,
-            8f, // scale 8x
+            SpriteScale,
             SpriteEffects.None,
             0f
         );
+
 
         _spriteBatch.End();
 
